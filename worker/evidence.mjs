@@ -33,7 +33,7 @@ function amounts(text) {
     return `${currencies[currencyName] || currencyName}:${Number((Number((m[2] || m[4]).replaceAll(',', '')) * scale).toPrecision(12))}`;
   });
 }
-export function evidenceGuard(result, items) {
+export function evidenceGuard(result, items, { checkHeadlineUncertainty = true } = {}) {
   const byId = new Map(items.map((a) => [a.articleId, a]));
   let hasUncertain = false;
   for (const event of result.events) {
@@ -57,7 +57,7 @@ export function evidenceGuard(result, items) {
   // Conservative global check: do not accept an unqualified headline or overview
   // when the generated analysis contains an event supported only by uncertain reports.
   if (
-    hasUncertain &&
+    checkHeadlineUncertainty && hasUncertain &&
     (!uncertain.test(result.headline) || !uncertain.test(result.overview))
   )
     throw new HttpError(502, "AI 标题或概述未保留消息的不确定性，未保存");

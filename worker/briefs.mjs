@@ -87,7 +87,7 @@ export async function generateBrief(env, input) {
     );
   });
 }
-export function validateAnalysis(result, brief) {
+export function validateAnalysis(result, brief, options) {
   if (
     typeof result?.headline !== "string" ||
     !result.headline.trim() ||
@@ -121,7 +121,7 @@ export function validateAnalysis(result, brief) {
     overview: result.overview,
     events,
   };
-  evidenceGuard(normalized, brief.items);
+  evidenceGuard(normalized, brief.items, options);
   return normalized;
 }
 export async function analyzeBrief(env, id) {

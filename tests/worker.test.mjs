@@ -426,3 +426,10 @@ test('scheduler disables daily reports, saves weekly reports and reuses successf
   assert.equal(env.db.prepare('SELECT updated_at FROM weekly_briefs').get().updated_at,initial.updated_at);
   env.db.close();
 });
+test('generic weekly headings may coexist with explicitly qualified events',()=>{
+  const source={items:[{articleId:1,title:'Company plans battery plant'}]};
+  const result={headline:'储能周报',overview:'本周储能项目进展。',events:[{title:'公司计划建设储能工厂',summary:'项目拟推进。',whyItMatters:'推断：仍需关注进度。',supportingArticleIds:[1]}]};
+  assert.doesNotThrow(()=>validateAnalysis(result,source,{checkHeadlineUncertainty:false}));
+  result.events[0].title='公司建成储能工厂';result.events[0].summary='项目已建成。';
+  assert.throws(()=>validateAnalysis(result,source,{checkHeadlineUncertainty:false}));
+});

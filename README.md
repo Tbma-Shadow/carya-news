@@ -28,7 +28,7 @@ Translations are cached in D1 by model, language pair and text hash. New article
 
 Weekly summaries cover up to 40 matched articles and use only their original headlines and descriptions. The summary records article citations and validates references, monetary values and uncertainty language. When generation or validation fails, the article list is saved with a pending status; it is never presented as a completed summary. A failed manual refresh preserves an existing successful summary.
 
-Cloudflare request limits require bounded work: at most 20 keywords per manual discovery run, 50 results per keyword, and 20 records per maintenance backfill. RSS reads at most 100 entries from each feed. Sources may block automated access. This migration's AI guard rejects references outside the snapshot, altered monetary amounts and missing uncertainty qualifiers; its global uncertainty check is deliberately conservative. External-provider calls need live acceptance after keys are configured.
+Cloudflare request limits require bounded work: at most 20 keywords per manual discovery run, 50 results per keyword, and 20 records per maintenance backfill. RSS reads at most 100 entries from each feed. Sources may block automated access. This migration's AI guard rejects references outside the snapshot, altered monetary amounts and missing uncertainty qualifiers; weekly uncertainty checks apply to each cited event, so a neutral report heading does not invalidate a qualified summary.
 
 ## Development
 

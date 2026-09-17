@@ -55,7 +55,9 @@ export async function generateWeekly(env, input, { scheduled = false } = {}) {
         });
         const output = result.response || result.choices?.[0]?.message?.content;
         const parsed = typeof output === 'string' ? JSON.parse(output.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, '').trim()) : output;
-        analysis = validateAnalysis(parsed, { items: items.map(a => ({...a, title:a.originalTitle, description:a.originalDescription})) });
+        // A generic weekly heading makes no claim that each event is confirmed.
+        // Uncertainty is checked in every event against its cited source text.
+        analysis = validateAnalysis(parsed, { items: items.map(a => ({...a, title:a.originalTitle, description:a.originalDescription})) }, {checkHeadlineUncertainty:false});
         analysis.events = analysis.events.map(event => ({...event, whyItMatters: event.whyItMatters.startsWith('推断') ? event.whyItMatters : '推断：' + event.whyItMatters}));
         if (!/[\u3400-\u9fff]/u.test(analysis.overview)) throw new Error('Summary must be Chinese');
         summaryStatus = 'READY';
