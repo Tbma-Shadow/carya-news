@@ -49,8 +49,8 @@ export async function authRoute(request, env, path) {
     });
   }
   if (path === "/api/auth/login" && request.method === "POST") {
-    if (!env.ADMIN_PASSWORD || !env.ADMIN_USERNAME)
-      throw new HttpError(503, "管理员尚未配置登录账号");
+    if (!env.ADMIN_PASSWORD)
+      throw new HttpError(503, "管理员尚未配置访问口令");
     const key = await digest(
       request.headers.get("CF-Connecting-IP") || "local",
     );
@@ -67,10 +67,8 @@ export async function authRoute(request, env, path) {
     if (raw.length > 2048) throw new HttpError(400, "登录信息过长");
     const form = new URLSearchParams(raw);
     const valid =
-      (await digest(form.get("username") || "")) ===
-        (await digest(env.ADMIN_USERNAME)) &&
-      (await digest(form.get("password") || "")) ===
-        (await digest(env.ADMIN_PASSWORD));
+      (await digest((form.get("password") || "").toLowerCase())) ===
+        (await digest(env.ADMIN_PASSWORD.toLowerCase()));
     if (!valid) {
       await run(
         env.DB,
@@ -78,7 +76,7 @@ export async function authRoute(request, env, path) {
         key,
         time + 15 * 60000,
       );
-      throw new HttpError(401, "用户名或密码错误");
+      throw new HttpError(401, "口令不正确，请重新输入");
     }
     await run(env.DB, "DELETE FROM login_attempts WHERE key=?", key);
     await run(env.DB, "DELETE FROM sessions WHERE expires_at<?", time);
@@ -87,10 +85,10 @@ export async function authRoute(request, env, path) {
       env.DB,
       "INSERT INTO sessions VALUES(?,?,?)",
       await digest(token),
-      env.ADMIN_USERNAME,
+      "carya",
       time + 7 * 86400000,
     );
-    return json({ authenticated: true, username: env.ADMIN_USERNAME }, 200, {
+    return json({ authenticated: true, username: "carya" }, 200, {
       "Set-Cookie": cookie("carya_news_session", token, 7 * 86400, request),
     });
   }

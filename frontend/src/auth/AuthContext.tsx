@@ -18,7 +18,7 @@ interface AuthContextValue {
   loading: boolean
   authenticated: boolean
   username: string | null
-  login(username: string, password: string): Promise<void>
+  login(password: string): Promise<void>
   logout(): Promise<void>
 }
 
@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, clearAuthentication)
   }, [clearAuthentication])
 
-  const login = useCallback(async (submittedUsername: string, password: string) => {
-    const user = await requestLogin(submittedUsername, password)
+  const login = useCallback(async (password: string) => {
+    const user = await requestLogin(password)
     setAuthenticated(true)
     setUsername(user.username)
     setLoading(false)

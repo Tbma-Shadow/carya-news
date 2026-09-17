@@ -56,7 +56,6 @@ function environment() {
         }
       },
     },
-    ADMIN_USERNAME: "test-user",
     ADMIN_PASSWORD: "test-password-only",
     ASSETS: { fetch: () => new Response("asset") },
     db,
@@ -105,7 +104,6 @@ function client(env) {
     async login() {
       await this.request("/api/auth/csrf");
       return this.request("/api/auth/login", "POST", {
-        username: env.ADMIN_USERNAME,
         password: env.ADMIN_PASSWORD,
       });
     },
@@ -326,4 +324,13 @@ test("AI monetary guard and uncertain reporting survive migration", () => {
   result.events[0].summary = "The investment is $10 million.";
   result.events[0].title = "Company builds plant";
   assert.throws(() => evidenceGuard(result, items));
+});
+
+test("passphrase-only sign-in matches tools case handling and rejects empty input", async () => {
+  const env = environment(), a = client(env);
+  await a.request('/api/auth/csrf');
+  assert.equal((await a.request('/api/auth/login','POST',{password:''})).status,401);
+  assert.equal((await a.request('/api/auth/login','POST',{password:env.ADMIN_PASSWORD.toUpperCase()})).status,200);
+  assert.equal((await a.request('/api/auth/me')).data.authenticated,true);
+  env.db.close();
 });

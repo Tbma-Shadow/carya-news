@@ -21,10 +21,9 @@ export function getCurrentUser(): Promise<CurrentUserResponse> {
 }
 
 export async function login(
-  username: string,
   password: string,
 ): Promise<CurrentUserResponse> {
-  const body = new URLSearchParams({ username, password })
+  const body = new URLSearchParams({ password })
   const user = await fetchJson<CurrentUserResponse>('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

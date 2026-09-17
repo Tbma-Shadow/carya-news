@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 export function AppHeader() {
-  const { username, logout } = useAuth()
+  const { logout } = useAuth()
   const navigate = useNavigate()
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -37,7 +37,6 @@ export function AppHeader() {
         </nav>
         <div className="app-header__account">
           <a className="tools-link" href="https://tools.caryaenergy.com">工具导览 ↗</a>
-          <span className="app-header__username">{username}</span>
           <button
             className="app-header__logout"
             type="button"

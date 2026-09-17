@@ -8,7 +8,7 @@ Fork of [clairdelunesolace/energy-news-webapp](https://github.com/clairdelunesol
 - Pages fallback: https://carya-news.pages.dev.
 - Scheduled Worker: carya-news, with the same code and D1 database as Pages.
 - Database: carya-news. Migrations are in migrations/.
-- Sign-in: shared account, username carya; password is configured as a Cloudflare secret and is never included in this repository.
+- Sign-in: shared access passphrase only, matching the tools directory; the passphrase is configured as a Cloudflare secret and is never included in this repository.
 
 The website uses the Carya cream, brown, green, amber and coral palette, shared logo, and a transparent SVG newspaper favicon. Tools navigation links back to tools.caryaenergy.com.
 
@@ -36,7 +36,7 @@ Use Node.js 24.
     npx wrangler d1 migrations apply carya-news --local
     npx wrangler dev
 
-Create an ignored .dev.vars containing ADMIN_USERNAME and ADMIN_PASSWORD for local sign-in. Do not put credentials in frontend environment variables.
+Create an ignored .dev.vars containing ADMIN_PASSWORD for local sign-in. Do not put credentials in frontend environment variables.
 
 ## Deployment
 
@@ -49,7 +49,7 @@ Create an ignored .dev.vars containing ADMIN_USERNAME and ADMIN_PASSWORD for loc
 
 On Windows, scripts/deploy-api.mjs can deploy the prebuilt Worker using the same Cloudflare asset-upload API when esbuild cannot traverse the sandbox's parent directories. It uses CLOUDFLARE_API_TOKEN or the Wrangler OAuth configuration under XDG_CONFIG_HOME; it does not contain credentials.
 
-The Pages project needs the DB binding and the same provider variables and secrets as the Worker. Configure ADMIN_USERNAME and ADMIN_PASSWORD on both. Optional secrets: BRAVE_SEARCH_API_KEY, GNEWS_API_KEY, DEEPL_API_KEY, GROQ_API_KEY. NEWS_DISCOVERY_PROVIDER accepts rss, brave, gnews or none. Set the provider and scheduler flags in both environments when changing modes.
+The Pages project needs the DB binding and the same provider variables and secrets as the Worker. Configure ADMIN_PASSWORD on both. ADMIN_USERNAME is no longer used. Optional secrets: BRAVE_SEARCH_API_KEY, GNEWS_API_KEY, DEEPL_API_KEY, GROQ_API_KEY. NEWS_DISCOVERY_PROVIDER accepts rss, brave, gnews or none. Set the provider and scheduler flags in both environments when changing modes.
 
 Optional GitHub Actions templates are in docs/workflows/. Move them to .github/workflows/ with a GitHub credential that permits workflow changes to enable CI. The deployment template requires a repository secret named CLOUDFLARE_API_TOKEN with Workers, Pages and D1 permissions. The initial upload was performed from the authenticated local session.
 
