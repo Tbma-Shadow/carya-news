@@ -410,7 +410,7 @@ function WatchlistSection({
           {keywordsUpdated ? (
             <p className="watchlist-news-refresh__notice" role="status">关键词已更新，可立即刷新相关新闻。</p>
           ) : (
-            <p>为“{watchlist.name}”发现昨天至今天的最新相关新闻。</p>
+            <p>为“{watchlist.name}”刷新订阅来源。全网新闻由 Codex 每个工作日 09:00 搜索并入库。</p>
           )}
           {refreshMessage && (
             <p

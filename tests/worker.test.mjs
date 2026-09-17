@@ -44,6 +44,7 @@ function environment() {
     };
   };
   db.exec(fs.readFileSync(new URL('../migrations/0002_weekly_translation.sql', import.meta.url), 'utf8'));
+  db.exec(fs.readFileSync(new URL('../migrations/0003_web_search.sql', import.meta.url), 'utf8'));
   return {
     DB: {
       prepare,
@@ -419,9 +420,9 @@ test('scheduler disables daily reports, saves weekly reports and reuses successf
   env.WEEKLY_BRIEF_SCHEDULER_ENABLED='true';env.DAILY_BRIEF_SCHEDULER_ENABLED='true';
   async function schedule(cron) {let pending;await worker.scheduled({cron},env,{waitUntil(p){pending=p}});await pending;}
   await schedule('10 0 * * *');assert.equal(env.db.prepare('SELECT COUNT(*) n FROM daily_briefs').get().n,0);
-  await schedule('10 0 * * MON');
+  await schedule('30 1 * * MON');
   const initial=env.db.prepare('SELECT * FROM weekly_briefs').get();assert.ok(initial);
-  await schedule('10 1 * * MON');
+  await schedule('30 2 * * MON');
   assert.equal(env.db.prepare('SELECT COUNT(*) n FROM weekly_briefs').get().n,1);
   assert.equal(env.db.prepare('SELECT updated_at FROM weekly_briefs').get().updated_at,initial.updated_at);
   env.db.close();
@@ -432,4 +433,42 @@ test('generic weekly headings may coexist with explicitly qualified events',()=>
   assert.doesNotThrow(()=>validateAnalysis(result,source,{checkHeadlineUncertainty:false}));
   result.events[0].title='公司建成储能工厂';result.events[0].summary='项目已建成。';
   assert.throws(()=>validateAnalysis(result,source,{checkHeadlineUncertainty:false}));
+});
+
+import { importSearch } from '../worker/search-import.mjs';
+import { searchMatches } from '../worker/search.mjs';
+import { translatePending } from '../worker/translation-jobs.mjs';
+function searchEnv(){const env=environment();env.db.exec("INSERT INTO watchlists(name,created_at,updated_at) VALUES('储能','x','x'); INSERT INTO keywords(watchlist_id,keyword,created_at,updated_at) VALUES(1,'energy storage','x','x')");return env;}
+const importedArticle={url:'https://publisher.org/project',sourceName:'Publisher',language:'EN',title:'Energy storage project announced',description:'A 20 MW battery storage project is planned.',publishedAt:'2026-09-16T00:00:00Z',translation:{title:'储能项目公布',description:'计划建设一个 20 MW 电池储能项目。'}};
+test('search import preserves Chinese metadata, matches Chinese aliases, reuses normalized sources and deduplicates URLs',async()=>{
+ const env=searchEnv();
+ try{
+  const result=await importSearch(env,{watchlistId:1,articles:[importedArticle,{...importedArticle,url:'https://publisher.org/second'},{title:'储能项目投运',description:'新型储能电站投入运行。',url:'https://zh.example.org/a',sourceName:'中文来源',language:'ZH_CN',publishedAt:importedArticle.publishedAt}]});
+  assert.equal(result.saved,3);assert.equal(env.db.prepare('SELECT count(*) n FROM sources').get().n,2);
+  assert.equal(env.db.prepare('SELECT count(*) n FROM article_keyword_matches').get().n,3);
+  const repeat=await importSearch(env,{watchlistId:1,articles:[{...importedArticle,url:importedArticle.url+'?utm_source=x#top'}]});assert.equal(repeat.duplicates,1);
+  const a=env.db.prepare('SELECT * FROM articles WHERE id=1').get();assert.equal(JSON.parse(a.translation).version,'codex-v1');
+  env.AI={run:async()=>{throw Error('Existing metadata should not be regenerated')}};
+  const processed=await postProcess(env,1,{metadata:true,extract:false,contentTranslation:false});assert.equal(processed.metadataTranslationStatus,'SUCCESS');
+ }finally{env.db.close();}
+});
+test('search import rejects unrelated, unsafe, future and mistranslated records and caps new articles per publisher',async()=>{
+ const env=searchEnv();try{
+  const bad=[{...importedArticle,url:'https://127.0.0.1/a'}, {...importedArticle,title:'Bess wins an award',description:'A movie star.'}, {...importedArticle,publishedAt:'2099-01-01'}, {...importedArticle,translation:{title:'储能项目',description:'计划建设一个 20 MWh 电池储能项目。'}}];
+  const rejected=await importSearch(env,{watchlistId:1,articles:bad});assert.equal(rejected.rejected,4);assert.equal(rejected.saved,0);
+  const capped=await importSearch(env,{watchlistId:1,articles:Array.from({length:4},(_,i)=>({...importedArticle,url:`https://publisher.org/${i}`}))});assert.equal(capped.saved,3);assert.equal(capped.rejected,1);
+  await assert.rejects(()=>importSearch(env,{watchlistId:1,articles:Array(31).fill(importedArticle)}));
+  assert.equal(searchMatches({title:'Bess actress news'},'BESS'),false);
+ }finally{env.db.close();}
+});
+test('queued extraction retries independently and observes a daily publisher cooldown',async()=>{
+ const env=searchEnv();await importSearch(env,{watchlistId:1,articles:[{...importedArticle,language:'ZH_CN',title:'储能项目',description:'储能电站项目。',translation:undefined}]});
+ const original=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('blocked')};
+ try{const result=await translatePending(env);assert.equal(result.extractionFailed,1);await translatePending(env);assert.equal(calls,1);}finally{globalThis.fetch=original;env.db.close();}
+});
+test('search import API requires authentication and CSRF, records empty completed searches',async()=>{
+ const env=searchEnv();const anonymous=await worker.fetch(new Request('https://news.example.com/api/discovery/status'),env);assert.equal(anonymous.status,401);
+ const a=client(env);await a.request('/api/auth/csrf');await a.request('/api/auth/login','POST',{password:'test-password-only'});
+ const response=await a.request('/api/discovery/import','POST',{watchlistId:1,articles:[]});assert.equal(response.status,200);
+ assert.ok((await a.request('/api/discovery/status')).data.lastRun.importedAt);env.db.close();
 });

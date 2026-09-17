@@ -7,7 +7,7 @@ export function HomePage() {
         <header className="feed-page__heading">
           <span className="page-eyebrow">CARYA NEWS</span>
           <h1 id="latest-news-heading">最新资讯</h1>
-          <p>查看储能行业动态，按来源与关键词筛选，阅读原文和中文译文。</p>
+          <p>汇集公开新闻网站的中英文储能资讯，按关键词发现新闻，保留媒体来源、原文和中文译文。</p>
         </header>
         <ArticleFeed />
       </section>

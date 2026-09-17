@@ -1,3 +1,4 @@
+import { WebSearchStatus } from './WebSearchStatus'
 import { useEffect, useState } from 'react'
 import { getArticles } from '../../api/articles'
 import { getWatchlists } from '../../api/watchlists'
@@ -97,7 +98,8 @@ export function ArticleFeed() {
         keywordsLoading={keywordsLoading}
         keywordsError={keywordsError}
       />
-      <ScheduleInfo kind="newsDiscovery" />
+      <WebSearchStatus />
+
 
       <div className="article-feed__results" aria-live="polite" aria-busy={status === 'loading'}>
         {status === 'loading' && <p className="status-message">正在加载资讯…</p>}

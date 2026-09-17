@@ -1,3 +1,4 @@
+import { importSearch } from './search-import.mjs';
 import {
   all,
   first,
@@ -43,10 +44,13 @@ async function api(request, env) {
   const auth = await authRoute(request, env, path);
   if (auth) return auth;
   if (!(await current(request, env))) throw new HttpError(401, "请先登录");
+  if (path === '/api/discovery/import' && method === 'POST') return json(await importSearch(env, await body(request)));
+  if (path === '/api/discovery/status' && method === 'GET') return json({provider:'codex',times:['09:00'],days:['MO','TU','WE','TH','FR'],zone:'Asia/Shanghai',lastRun:await first(env.DB,'SELECT imported_at AS importedAt,summary FROM search_import_runs ORDER BY id DESC LIMIT 1')});
   if (path === "/api/health" && method === "GET") return json({ status: "UP" });
   if (path === "/api/system/schedules" && method === "GET")
     return json({
       newsDiscovery: {
+        provider: env.NEWS_DISCOVERY_PROVIDER || "none",
         enabled: env.NEWS_DISCOVERY_SCHEDULER_ENABLED === "true",
         cron: "0 0 8 * * *",
         zone: "Asia/Shanghai",
@@ -60,7 +64,7 @@ async function api(request, env) {
       },
       weeklyBrief: {
         enabled: env.WEEKLY_BRIEF_SCHEDULER_ENABLED === 'true',
-        cron: '10 0 * * MON', zone: 'Asia/Shanghai', dailyTime: '08:10', dayOfWeek: 'MONDAY',
+        cron: '30 1 * * MON', zone: 'Asia/Shanghai', dailyTime: '09:30', dayOfWeek: 'MONDAY',
       },
     });
   if (path === "/api/sources") {
@@ -402,7 +406,7 @@ export default {
             );
         }
         if (
-          ['10 0 * * MON','10 1 * * MON','10 2 * * MON'].includes(event.cron) &&
+          ['30 1 * * MON','30 2 * * MON','30 3 * * MON'].includes(event.cron) &&
           env.WEEKLY_BRIEF_SCHEDULER_ENABLED === "true"
         ) {
           for (const w of await all(

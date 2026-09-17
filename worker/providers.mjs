@@ -187,7 +187,7 @@ export async function postProcess(
   const translation = a.translation
     ? JSON.parse(a.translation)
     : { language: "ZH_CN", title: null, description: null, content: null };
-  if (env.AI && translation.version !== TRANSLATION_VERSION) {
+  if (env.AI && ![TRANSLATION_VERSION, "codex-v1"].includes(translation.version)) {
     translation.title = null; translation.description = null; translation.content = null;
     translation.version = TRANSLATION_VERSION;
   }
@@ -199,6 +199,7 @@ export async function postProcess(
     overallStatus: "FAILED",
   };
   if (extract) {
+    await run(env.DB, 'UPDATE articles SET extraction_attempted_at=? WHERE id=?', now(), id);
     if (content) result.contentExtractionStatus = "SUCCESS";
     else if (source.content_enrichment_enabled) {
       try {
@@ -344,7 +345,7 @@ export async function discoveryRun(env, request) {
             kr.skippedInvalidUrl++;
             continue;
           }
-          const site = new URL(url).origin;
+          const site = safeUrl(new URL(url).origin);
           let source = candidate.sourceId
             ? await required(env.DB, "sources", candidate.sourceId)
             : await first(env.DB, "SELECT * FROM sources WHERE url=?", site);

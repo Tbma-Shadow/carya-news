@@ -52,7 +52,8 @@ export async function articleDto(db, r) {
   const source = await required(db, "sources", r.source_id);
   const keywords = await all(
     db,
-    "SELECT k.keyword FROM keywords k JOIN watchlists w ON w.id=k.watchlist_id WHERE k.enabled=1 AND w.enabled=1 ORDER BY lower(k.keyword),k.keyword",
+    "SELECT k.keyword FROM keywords k JOIN watchlists w ON w.id=k.watchlist_id JOIN article_keyword_matches m ON m.keyword_id=k.id WHERE m.article_id=? AND k.enabled=1 AND w.enabled=1 ORDER BY lower(k.keyword),k.keyword",
+    r.id,
   );
   return {
     id: r.id,
@@ -72,7 +73,6 @@ export async function articleDto(db, r) {
     tags: [
       ...new Map(
         keywords
-          .filter((k) => matches(r, k.keyword))
           .map((k) => [k.keyword.toLowerCase(), k.keyword]),
       ).values(),
     ],
