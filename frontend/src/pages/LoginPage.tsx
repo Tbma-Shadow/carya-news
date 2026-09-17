@@ -35,8 +35,10 @@ export function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-heading">
-        <p className="login-card__brand">储能资讯</p>
-        <h1 id="login-heading">登录</h1>
+        <img className="login-logo" src="/carya-logo.svg" alt="Carya Energy 行能科技" />
+        <p className="login-card__brand">CARYA NEWS · 行能资讯</p>
+        <h1 id="login-heading">登录行能资讯</h1>
+        <p className="login-intro">查看能源行业动态、关注关键词与每日简报。</p>
 
         <form className="login-form" onSubmit={submit}>
           <label htmlFor="username">用户名</label>

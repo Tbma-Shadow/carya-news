@@ -8,14 +8,14 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
-  --color-background: #f3f6f4;
-  --color-surface: #ffffff;
-  --color-surface-muted: #eaf0ec;
-  --color-text-primary: #17231d;
-  --color-text-secondary: #607068;
-  --color-accent: #176b4d;
-  --color-accent-strong: #0f5039;
-  --color-border: #d5e0d9;
+  --color-background: #fff9f0;
+  --color-surface: #fffdf9;
+  --color-surface-muted: #f4eddf;
+  --color-text-primary: #39280f;
+  --color-text-secondary: #756855;
+  --color-accent: #527f12;
+  --color-accent-strong: #39280f;
+  --color-border: #e4dbcd;
   --color-error: #a13c3c;
 
   --spacing-1: 0.25rem;
@@ -305,7 +305,7 @@ a {
 }
 
 .button--primary {
-  color: #ffffff;
+  color: #fffdf9;
   background: var(--color-accent);
 }
 
@@ -1002,3 +1002,6 @@ a {
     justify-content: space-between;
   }
 }
+
+/* Carya shared visual language */
+:root{--radius-small:.5rem;--content-width:72rem}body{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}.app-header{background:#fff9f0}.app-header__content{min-height:112px;gap:20px;flex-wrap:wrap;padding:20px 0}.app-brand{display:flex;align-items:center;gap:22px;color:#39280f;letter-spacing:0;font-size:18px}.app-brand img{width:235px;max-width:100%;height:auto}.app-brand>span{border-left:1px solid #e4dbcd;padding-left:22px}.app-brand small{display:block;font-size:10px;letter-spacing:.15em;font-weight:500;color:#756855;margin-top:4px}.app-header__navigation{margin-left:auto;margin-right:0;align-self:center;gap:20px}.app-header__navigation a{padding:12px 0}.app-header__navigation a[aria-current=page]{border-color:#7dc818}.tools-link{font-size:12px;color:#756855;text-decoration:none;white-space:nowrap}.page-eyebrow{font-size:12px;font-weight:600;letter-spacing:.15em;color:#756855}.feed-page__heading h1{font-size:36px;letter-spacing:-.035em;margin-top:10px}.page-shell{padding-top:40px}.login-card{background:#fffdf9;border:1px solid #e4dbcd;border-top:5px solid #7dc818;border-radius:18px;box-shadow:0 12px 40px #39280f05;padding:36px}.login-logo{width:290px;max-width:100%;margin-bottom:28px}.login-card__brand{font-size:11px;letter-spacing:.12em;color:#756855}.login-intro{color:#756855;line-height:1.7;font-size:14px}.button--primary{background:#39280f;color:#fff9f0;border-color:#39280f}.button--primary:hover{background:#534021}.article-list-item,.feed-toolbar,.daily-brief-report{border-radius:12px}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #527f12;outline-offset:3px}@media(max-width:1100px){.app-header__content{gap:12px}.app-header__navigation{order:3;width:100%;margin-left:0}.app-brand img{width:200px}}@media(max-width:600px){.app-header__content{padding:20px 0 8px}.app-brand{gap:12px}.app-brand img{width:168px}.app-brand>span{padding-left:12px;font-size:15px}.app-brand small{font-size:9px}.app-header__account{margin-left:0;width:100%;justify-content:flex-end}.app-header__navigation{gap:24px}.page-shell{padding-top:26px}.feed-page__heading h1{font-size:30px}.login-card{padding:26px}.app-header__username{max-width:120px;overflow:hidden;text-overflow:ellipsis}}

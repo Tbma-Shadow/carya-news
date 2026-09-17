@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "carya-news",
+  "main": "build/worker.mjs",
+  "no_bundle": true,
+  "compatibility_date": "2026-09-17",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "account_id": "fde00bf244c1cffa8130e7c82345e6d1",
+  "assets": {
+    "directory": "./frontend/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "carya-news",
+      "database_id": "a5809890-71d5-4ac9-9c57-9207e60d892c",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 12 * * *",
+      "0 0 * * *",
+      "10 0 * * *"
+    ]
+  },
+  "vars": {
+    "NEWS_DISCOVERY_PROVIDER": "rss",
+    "NEWS_DISCOVERY_SCHEDULER_ENABLED": "true",
+    "DAILY_BRIEF_SCHEDULER_ENABLED": "true",
+    "DAILY_BRIEF_AI_MODEL": "openai/gpt-oss-20b"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

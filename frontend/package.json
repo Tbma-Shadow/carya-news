@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --test --experimental-strip-types tests/articleTranslationRecovery.test.ts tests/manualNewsRefresh.test.ts tests/articleListItem.test.ts tests/systemSchedules.test.ts",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },

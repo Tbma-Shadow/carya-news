@@ -24,8 +24,9 @@ export function AppHeader() {
   return (
     <header className="app-header">
       <div className="app-header__content">
-        <Link className="app-brand" to="/" aria-label="储能资讯首页">
-          储能资讯
+        <Link className="app-brand" to="/" aria-label="行能资讯首页">
+          <img src="/carya-logo.svg" alt="Carya Energy 行能科技" />
+          <span>行能资讯 <small>CARYA NEWS</small></span>
         </Link>
         <nav className="app-header__navigation" aria-label="主要导航">
           <NavLink to="/" end>
@@ -35,6 +36,7 @@ export function AppHeader() {
           <NavLink to="/daily-briefs">每日简报</NavLink>
         </nav>
         <div className="app-header__account">
+          <a className="tools-link" href="https://tools.caryaenergy.com">工具导览 ↗</a>
           <span className="app-header__username">{username}</span>
           <button
             className="app-header__logout"

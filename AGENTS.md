@@ -1,5 +1,15 @@
 # Project Guidelines
 
+## Carya Cloudflare deployment
+
+The user authorized migrating this fork to Cloudflare Workers and D1. Production
+code is in `worker/`; `frontend/` retains the React interface. `backend/` remains
+the upstream Java reference and is not deployed. The Java-specific stack rules
+below apply to that reference implementation. Run `npm test`,
+`npm test --prefix frontend`, and `npm run build` for production changes.
+Preserve API response contracts and document migration limits in README.md.
+Never commit credentials or generated deployment output.
+
 ## Project
 
 Energy Storage News Intelligence Platform.
