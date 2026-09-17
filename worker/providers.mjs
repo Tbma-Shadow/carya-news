@@ -15,6 +15,7 @@ import {
   withLock,
 } from "./common.mjs";
 import { ingest, createSource } from "./data.mjs";
+import { translateChinese, TRANSLATION_VERSION } from './ai.mjs';
 export function plain(value) {
   const { document } = parseHTML(
     `<html><body>${String(value || "")}</body></html>`,
@@ -149,6 +150,11 @@ export async function discover(env, keyword, from, to, limit) {
     .slice(0, limit);
 }
 async function translate(env, texts) {
+  if (env.AI) {
+    const out = [];
+    for (const text of texts) out.push(await translateChinese(env, text));
+    return out;
+  }
   if (!env.DEEPL_API_KEY) throw new HttpError(503, "翻译服务未配置");
   const base =
     env.DEEPL_BASE_URL === "https://api.deepl.com"
@@ -181,6 +187,10 @@ export async function postProcess(
   const translation = a.translation
     ? JSON.parse(a.translation)
     : { language: "ZH_CN", title: null, description: null, content: null };
+  if (env.AI && translation.version !== TRANSLATION_VERSION) {
+    translation.title = null; translation.description = null; translation.content = null;
+    translation.version = TRANSLATION_VERSION;
+  }
   const result = {
     articleId: a.id,
     metadataTranslationStatus: "NOT_AVAILABLE",
@@ -207,13 +217,11 @@ export async function postProcess(
   if (source.language === "ZH_CN") {
     result.metadataTranslationStatus = "NOT_AVAILABLE";
     result.contentTranslationStatus = "NOT_AVAILABLE";
-  } else if (env.DEEPL_API_KEY) {
+  } else if (env.AI || env.DEEPL_API_KEY) {
     if (metadata) {
       try {
-        const texts = [a.title, ...(a.description ? [a.description] : [])];
-        const t = await translate(env, texts);
-        translation.title = t[0];
-        translation.description = t[1] || null;
+        if (!translation.title) translation.title = (await translate(env, [a.title]))[0];
+        if (a.description && !translation.description) translation.description = (await translate(env, [a.description]))[0];
         result.metadataTranslationStatus = "SUCCESS";
       } catch {
         result.metadataTranslationStatus = "FAILED";
@@ -221,11 +229,11 @@ export async function postProcess(
     }
     if (contentTranslation && content) {
       try {
-        const chunks = content.match(/[\s\S]{1,12000}/g) || [];
+        const chunks = translation.content ? [] : content.match(/[\s\S]{1,12000}/g) || [];
         const translated = [];
         for (const chunk of chunks)
           translated.push(...(await translate(env, [chunk])));
-        translation.content = translated.join("\n\n");
+        if (translated.length) translation.content = translated.join("\n\n");
         result.contentTranslationStatus = "SUCCESS";
       } catch {
         result.contentTranslationStatus = "FAILED";
@@ -234,11 +242,12 @@ export async function postProcess(
   }
   await run(
     env.DB,
-    "UPDATE articles SET content=?,translation=?,updated_at=? WHERE id=?",
+    "UPDATE articles SET content=?,translation=?,updated_at=?,translation_attempted_at=? WHERE id=?",
     content,
     translation.title || translation.content
       ? JSON.stringify(translation)
       : a.translation,
+    now(),
     now(),
     a.id,
   );
@@ -373,7 +382,7 @@ export async function discoveryRun(env, request) {
           kr[previous ? "keywordMatchesExisting" : "keywordMatchesCreated"]++;
           if (stored.saved) {
             out.postProcessingAttempted++;
-            const p = await postProcess(env, stored.row.id);
+            const p = await postProcess(env, stored.row.id, { contentTranslation: false });
             for (const [step, target] of [
               ["metadataTranslationStatus", "metadataTranslation"],
               ["contentExtractionStatus", "contentExtraction"],
@@ -478,7 +487,7 @@ export async function syncRss(env, sourceId) {
             });
             result[saved.saved ? "saved" : "duplicates"]++;
             if (saved.saved) {
-              const p = await postProcess(env, saved.row.id);
+              const p = await postProcess(env, saved.row.id, { contentTranslation: false });
               for (const [s, ok, fail] of [
                 [
                   "metadataTranslationStatus",

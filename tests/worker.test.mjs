@@ -5,8 +5,11 @@ import fs from "node:fs";
 import worker from "../worker/index.mjs";
 import { safeUrl, dateWindow } from "../worker/common.mjs";
 import { parseFeed, relevant } from "../worker/providers.mjs";
-import { validateAnalysis } from "../worker/briefs.mjs";
-import { evidenceGuard } from "../worker/evidence.mjs";
+import { validateAnalysis, generateBrief } from "../worker/briefs.mjs";
+import { weekWindow, previousWeek, generateWeekly } from '../worker/weekly.mjs';
+import { splitTranslation, translateChinese, validateTranslationUnits } from '../worker/ai.mjs';
+import { postProcess } from '../worker/providers.mjs';
+import { evidenceGuard, validateMonetaryTranslation } from "../worker/evidence.mjs";
 function environment() {
   const db = new DatabaseSync(":memory:");
   db.exec(
@@ -40,6 +43,7 @@ function environment() {
       },
     };
   };
+  db.exec(fs.readFileSync(new URL('../migrations/0002_weekly_translation.sql', import.meta.url), 'utf8'));
   return {
     DB: {
       prepare,
@@ -209,12 +213,11 @@ test("shared CRUD, uniqueness, feed pagination and Shanghai brief window", async
   assert.equal(page.last, true);
   assert.deepEqual(page.content[0].tags, ["battery"]);
   assert.equal((await a.request("/api/articles?size=0")).status, 400);
-  const brief = (
-    await a.request("/api/daily-briefs/generate", "POST", {
+  assert.equal((await a.request('/api/daily-briefs/generate', 'POST', {})).status, 410);
+  const brief = await generateBrief(env, {
       watchlistId: w,
       date: "2026-09-17",
-    })
-  ).data;
+    });
   assert.equal(brief.itemCount, 2);
   assert.equal(brief.windowStart, "2026-09-16T16:00:00.000Z");
   assert.equal(brief.items[0].matchingKeywordCount, 1);
@@ -332,5 +335,94 @@ test("passphrase-only sign-in matches tools case handling and rejects empty inpu
   assert.equal((await a.request('/api/auth/login','POST',{password:''})).status,401);
   assert.equal((await a.request('/api/auth/login','POST',{password:env.ADMIN_PASSWORD.toUpperCase()})).status,200);
   assert.equal((await a.request('/api/auth/me')).data.authenticated,true);
+  env.db.close();
+});
+
+test('week windows include Monday through Sunday in Shanghai across year boundaries', () => {
+  assert.deepEqual(weekWindow('2026-01-01'), {weekStart:'2025-12-29',weekEnd:'2026-01-04',start:'2025-12-28T16:00:00.000Z',end:'2026-01-04T16:00:00.000Z'});
+  assert.equal(previousWeek('2026-09-21').weekStart,'2026-09-14');
+  assert.equal(previousWeek('2026-09-20').weekStart,'2026-09-07');
+  assert.throws(() => weekWindow('2026-02-30'));
+});
+test('translation chunks preserve words and successful pieces are cached across retries', async () => {
+  const env=environment();
+  const source='Battery storage supports the electricity grid. '.repeat(40).trim();
+  const chunks=splitTranslation(source);
+  assert.ok(chunks.every(c=>c.length<=700));
+  assert.equal(chunks.join(' '),source);
+  assert.deepEqual(splitTranslation('Title\n  \n \n'+' '.repeat(300)+'\nBody'), ['Title\n\nBody']);
+  let calls=0;
+  env.AI={run:async()=>{calls++;return {response:'电池储能支持电网。',usage:{neurons:2}}}};
+  await translateChinese(env,source);
+  const firstCalls=calls;
+  await translateChinese(env,source);
+  assert.equal(calls,firstCalls);
+  assert.ok(firstCalls>0);
+  env.db.prepare('UPDATE ai_usage SET neurons=8000').run();
+  await assert.rejects(()=>translateChinese(env,'An uncached energy storage headline.'),e=>e.status===429);
+  assert.equal(calls,firstCalls);
+  env.db.close();
+});
+test('weekly generation selects the right dates, uses existing article matches, persists a cited Chinese summary and retries safely', async () => {
+  const env=environment(),a=client(env);await a.login();
+  const s=(await a.request('/api/sources','POST',{name:'Source',url:'https://example.org/rss',type:'RSS',priority:'HIGH'})).data.id;
+  for(const [i,time] of ['2026-09-06T15:59:59Z','2026-09-06T16:00:00Z','2026-09-13T15:59:59Z','2026-09-13T16:00:00Z'].entries())
+    await a.request('/api/articles','POST',{sourceId:s,title:`Battery storage ${i}`,url:`https://example.org/weekly/${i}`,publishedAt:time});
+  const w=(await a.request('/api/watchlists','POST',{name:'Storage'})).data.id;
+  await a.request(`/api/watchlists/${w}/keywords`,'POST',{keyword:'battery'});
+  let calls=0;
+  env.AI={run:async()=>{calls++;return {response:JSON.stringify({headline:'储能周报',overview:'本周两篇新闻讨论电池储能。',events:[{title:'电池储能',summary:'报道电池储能进展。',whyItMatters:'推断：可继续关注项目进展。',supportingArticleIds:[2,3]}]})}}};
+  const report=await generateWeekly(env,{watchlistId:w,date:'2026-09-09'});
+  assert.equal(report.itemCount,2);assert.equal(report.summaryStatus,'READY');
+  assert.deepEqual(report.items.map(x=>x.articleId).sort(),[2,3]);
+  await generateWeekly(env,{watchlistId:w,date:'2026-09-09'},{scheduled:true});
+  assert.equal(calls,1);
+  env.AI.run=async()=>{throw Error('provider unavailable')};
+  await assert.rejects(()=>generateWeekly(env,{watchlistId:w,date:'2026-09-09'}));
+  assert.equal((await a.request(`/api/weekly-briefs?watchlistId=${w}&date=2026-09-09`)).data.summaryStatus,'READY');
+  const schedules=(await a.request('/api/system/schedules')).data;
+  assert.equal(schedules.dailyBrief.enabled,false);assert.equal(schedules.weeklyBrief.dayOfWeek,'MONDAY');
+  await assert.rejects(()=>generateWeekly(env,{watchlistId:w,date:'2099-01-01'}),e=>e.status===400);
+  env.db.close();
+});
+test('translation post-processing is idempotent for existing titles, summaries and bodies',async()=>{
+  const env=environment(),a=client(env);await a.login();
+  const s=(await a.request('/api/sources','POST',{name:'Source',url:'https://example.org/rss',type:'RSS',priority:'HIGH'})).data.id;
+  const article=(await a.request('/api/articles','POST',{sourceId:s,title:'Battery storage',description:'A storage project.',content:'The project provides storage.',url:'https://example.org/translation'})).data.id;
+  let calls=0;env.AI={run:async()=>{calls++;return {response:'储能项目。'}}};
+  assert.equal((await postProcess(env,article)).overallStatus,'SUCCESS');
+  const initial=calls;await postProcess(env,article);assert.equal(calls,initial);
+  const result=(await a.request('/api/articles?keyword='+encodeURIComponent('储能'))).data;
+  assert.equal(result.totalElements,1);
+  env.db.close();
+});
+test('evidence checks allow equivalent Chinese amounts but reject changed amounts',()=>{
+  const items=[{articleId:1,title:'Battery investment of $10 million',description:''}];
+  const result={headline:'储能投资',overview:'储能投资动态',events:[{title:'储能投资',summary:'投资1000万美元。',supportingArticleIds:[1]}]};
+  assert.doesNotThrow(()=>evidenceGuard(result,items));
+  result.events[0].summary='投资10亿美元。';assert.throws(()=>evidenceGuard(result,items));
+  assert.doesNotThrow(()=>evidenceGuard(result,[{articleId:1,title:'Base Power raises $1B',description:''}]));
+  assert.doesNotThrow(()=>validateMonetaryTranslation('$490 million dollars', '4.9亿美元'));
+  assert.doesNotThrow(()=>validateMonetaryTranslation('RMB 0.1 per kWh', '0.1元/千瓦时'));
+});
+test('translation validation distinguishes power from energy in English and Chinese units',()=>{
+  assert.doesNotThrow(()=>validateTranslationUnits('62 MWh GC Block','62兆瓦时GC模块'));
+  assert.doesNotThrow(()=>validateTranslationUnits('4 MWh and 785Ah','4 MWh和785 Ah'));
+  assert.doesNotThrow(()=>validateTranslationUnits('20.2 gigawatt-hours and 10%','20.2吉瓦时和10%'));
+  assert.doesNotThrow(()=>validateTranslationUnits('a 1.2-gigawatt project','1.2吉瓦项目'));
+  assert.throws(()=>validateTranslationUnits('62 MWh battery storage','62兆瓦电池储能'));
+  assert.throws(()=>validateTranslationUnits('62 MWh battery storage','6.2兆瓦时电池储能'));
+});
+test('scheduler disables daily reports, saves weekly reports and reuses successful Monday retries',async()=>{
+  const env=environment(),a=client(env);await a.login();
+  await a.request('/api/watchlists','POST',{name:'Weekly schedule'});
+  env.WEEKLY_BRIEF_SCHEDULER_ENABLED='true';env.DAILY_BRIEF_SCHEDULER_ENABLED='true';
+  async function schedule(cron) {let pending;await worker.scheduled({cron},env,{waitUntil(p){pending=p}});await pending;}
+  await schedule('10 0 * * *');assert.equal(env.db.prepare('SELECT COUNT(*) n FROM daily_briefs').get().n,0);
+  await schedule('10 0 * * MON');
+  const initial=env.db.prepare('SELECT * FROM weekly_briefs').get();assert.ok(initial);
+  await schedule('10 1 * * MON');
+  assert.equal(env.db.prepare('SELECT COUNT(*) n FROM weekly_briefs').get().n,1);
+  assert.equal(env.db.prepare('SELECT updated_at FROM weekly_briefs').get().updated_at,initial.updated_at);
   env.db.close();
 });

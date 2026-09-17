@@ -26,3 +26,4 @@ node_modules/
 .dev.vars.*
 /build/
 /pages/
+/pages-deploy/

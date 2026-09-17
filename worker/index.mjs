@@ -14,6 +14,8 @@ import {
   withLock,
 } from "./common.mjs";
 import { authRoute, current, checkCsrf } from "./auth.mjs";
+import { generateWeekly, getWeekly, weeklyDto } from './weekly.mjs';
+import { translatePending } from './translation-jobs.mjs';
 import {
   sourceDto,
   keywordDto,
@@ -23,6 +25,7 @@ import {
   createSource,
   ingest,
   patchNamed,
+  matchKeyword,
 } from "./data.mjs";
 import { discoveryRun, discover, postProcess, syncRss } from "./providers.mjs";
 import {
@@ -50,10 +53,14 @@ async function api(request, env) {
         dailyTime: "08:00",
       },
       dailyBrief: {
-        enabled: env.DAILY_BRIEF_SCHEDULER_ENABLED === "true",
+        enabled: false,
         cron: "0 10 8 * * *",
         zone: "Asia/Shanghai",
         dailyTime: "08:10",
+      },
+      weeklyBrief: {
+        enabled: env.WEEKLY_BRIEF_SCHEDULER_ENABLED === 'true',
+        cron: '10 0 * * MON', zone: 'Asia/Shanghai', dailyTime: '08:10', dayOfWeek: 'MONDAY',
       },
     });
   if (path === "/api/sources") {
@@ -115,7 +122,7 @@ async function api(request, env) {
   ) {
     const contentOnly = path === "/api/articles/content-backfill",
       metadata = path === "/api/translations/backfill";
-    if (!contentOnly && !env.DEEPL_API_KEY)
+    if (!contentOnly && !env.DEEPL_API_KEY && !env.AI)
       throw new HttpError(503, "翻译服务未配置");
     const limit = integer(
       url.searchParams.get("limit") || (metadata ? 20 : contentOnly ? 5 : 1),
@@ -126,7 +133,7 @@ async function api(request, env) {
     const condition = contentOnly
       ? "a.content IS NULL AND s.content_enrichment_enabled=1"
       : metadata
-        ? "s.language='EN' AND a.translation IS NULL"
+        ? "s.language='EN' AND (json_extract(a.translation,'$.title') IS NULL OR (a.description IS NOT NULL AND json_extract(a.translation,'$.description') IS NULL))"
         : "s.language='EN' AND a.content IS NOT NULL AND (a.translation IS NULL OR json_extract(a.translation,'$.content') IS NULL)";
     return json(
       await withLock(env, "backfill", async () => {
@@ -139,11 +146,11 @@ async function api(request, env) {
         );
         let success = 0;
         for (const a of selected) {
-          const r = await postProcess(env, a.id, {
+          const r = await withLock(env, `article:${a.id}`, () => postProcess(env, a.id, {
             metadata,
             extract: contentOnly,
             contentTranslation: !contentOnly && !metadata,
-          });
+          }));
           if (
             r[
               contentOnly
@@ -231,6 +238,7 @@ async function api(request, env) {
       t,
       t,
     );
+    await matchKeyword(env.DB, result.meta.last_row_id);
     return json(
       keywordDto(await required(env.DB, "keywords", result.meta.last_row_id)),
       201,
@@ -287,7 +295,13 @@ async function api(request, env) {
   if (match && method === "POST")
     return json(await syncRss(env, integer(match[1])));
   if (path === "/api/daily-briefs/generate" && method === "POST")
-    return json(await generateBrief(env, await body(request)));
+    throw new HttpError(410, '日报已停用，请使用每周总结');
+  if (path === '/api/weekly-briefs/generate' && method === 'POST')
+    return json(await generateWeekly(env, await body(request)));
+  if (path === '/api/weekly-briefs' && method === 'GET')
+    return json(await getWeekly(env, url.searchParams.get('watchlistId'), url.searchParams.get('date')));
+  if (path === '/api/weekly-briefs/history' && method === 'GET')
+    return json((await all(env.DB, 'SELECT * FROM weekly_briefs WHERE watchlist_id=? ORDER BY week_start DESC LIMIT 52', integer(url.searchParams.get('watchlistId')))).map(weeklyDto));
   if (path === "/api/daily-briefs" && method === "GET") {
     const id = integer(url.searchParams.get("watchlistId")),
       date = url.searchParams.get("date");
@@ -383,22 +397,25 @@ export default {
                 watchlistId: w.id,
                 from: localDate(-1),
                 to: localDate(),
-                limitPerKeyword: 5,
+                limitPerKeyword: 20,
               }),
             );
         }
         if (
-          event.cron === "10 0 * * *" &&
-          env.DAILY_BRIEF_SCHEDULER_ENABLED === "true"
+          ['10 0 * * MON','10 1 * * MON','10 2 * * MON'].includes(event.cron) &&
+          env.WEEKLY_BRIEF_SCHEDULER_ENABLED === "true"
         ) {
           for (const w of await all(
             env.DB,
             "SELECT id FROM watchlists WHERE enabled=1",
           ))
-            await execute("brief", () =>
-              generateBrief(env, { watchlistId: w.id, date: localDate(-1) }),
-            );
+            await execute("weekly-brief", async () => {
+              const report = await generateWeekly(env, { watchlistId: w.id }, { scheduled: true });
+              if (report.summaryStatus !== 'READY') throw new HttpError(503, report.summaryError);
+              return { id: report.id, weekStart: report.weekStart, itemCount: report.itemCount };
+            });
         }
+        if (event.cron === '20 * * * *') await execute('translation', () => translatePending(env));
         await run(
           env.DB,
           "DELETE FROM sessions WHERE expires_at<?",

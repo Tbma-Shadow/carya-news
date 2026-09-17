@@ -28,15 +28,20 @@
     "crons": [
       "0 12 * * *",
       "0 0 * * *",
-      "10 0 * * *"
+      "10 0 * * MON",
+      "10 1 * * MON",
+      "10 2 * * MON",
+      "20 * * * *"
     ]
   },
   "vars": {
     "NEWS_DISCOVERY_PROVIDER": "rss",
     "NEWS_DISCOVERY_SCHEDULER_ENABLED": "true",
-    "DAILY_BRIEF_SCHEDULER_ENABLED": "true",
+    "DAILY_BRIEF_SCHEDULER_ENABLED": "false",
+    "WEEKLY_BRIEF_SCHEDULER_ENABLED": "true",
     "DAILY_BRIEF_AI_MODEL": "openai/gpt-oss-20b"
   },
+  "ai": { "binding": "AI" },
   "observability": {
     "enabled": true
   }

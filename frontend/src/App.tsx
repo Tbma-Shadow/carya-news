@@ -2,7 +2,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import { AppHeader } from './components/AppHeader'
 import { ArticleDetailPage } from './pages/ArticleDetailPage'
-import { DailyBriefsPage } from './pages/DailyBriefsPage'
+import { WeeklyBriefsPage } from './pages/WeeklyBriefsPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { WatchlistsPage } from './pages/WatchlistsPage'
@@ -15,7 +15,8 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/articles/:id" element={<ArticleDetailPage />} />
         <Route path="/watchlists" element={<WatchlistsPage />} />
-        <Route path="/daily-briefs" element={<DailyBriefsPage />} />
+        <Route path="/weekly-briefs" element={<WeeklyBriefsPage />} />
+        <Route path="/daily-briefs" element={<Navigate to="/weekly-briefs" replace />} />
       </Route>
     </Routes>
   )

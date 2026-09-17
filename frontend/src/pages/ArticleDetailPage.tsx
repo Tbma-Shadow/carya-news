@@ -106,8 +106,8 @@ function ArticleDetail({
   const originalLanguage = article.original.language === 'ZH_CN' ? 'zh-CN' : 'en'
   const primaryTitleLanguage =
     hasChineseTranslation && translatedTitle ? 'zh-CN' : originalLanguage
-  const primaryDescriptionLanguage = hasChineseTranslation ? 'zh-CN' : originalLanguage
-  const primaryContentLanguage = hasChineseTranslation ? 'zh-CN' : originalLanguage
+  const primaryDescriptionLanguage = article.translation?.description ? 'zh-CN' : originalLanguage
+  const primaryContentLanguage = article.translation?.content ? 'zh-CN' : originalLanguage
   const timestamp = article.publishedAt ?? article.collectedAt
   const recoveryMessage = getTranslationRecoveryMessage(recoveryStatus)
 
@@ -121,6 +121,7 @@ function ArticleDetail({
         </div>
 
         <h1 lang={primaryTitleLanguage}>{primaryTitle}</h1>
+        {originalLanguage === 'en' && <p className="article-list-item__translation-status">{article.translation?.content ? '机器翻译 · 可在文末对照英文原文' : '中文译文正在陆续补充，未完成的部分暂显示原文。'}</p>}
       </header>
 
       {primaryDescription && (

@@ -85,6 +85,7 @@ for (const bucket of session.buckets) {
   if (uploaded.jwt) jwt = uploaded.jwt;
 }
 const bindings = [
+  { name: 'AI', type: 'ai' },
   { name: "DB", type: "d1", id: config.d1_databases[0].database_id },
   { name: "ASSETS", type: "assets" },
   ...Object.entries(config.vars).map(([name, text]) => ({

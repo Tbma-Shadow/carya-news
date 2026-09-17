@@ -17,6 +17,7 @@ const { getSystemSchedules } = await vite.ssrLoadModule('/src/api/systemSchedule
 const { ArticleFeed } = await vite.ssrLoadModule('/src/features/articles/ArticleFeed.tsx')
 const { WatchlistsPage } = await vite.ssrLoadModule('/src/pages/WatchlistsPage.tsx')
 const { DailyBriefsPage } = await vite.ssrLoadModule('/src/pages/DailyBriefsPage.tsx')
+const { WeeklyBriefsPage, lastCompletedWeek } = await vite.ssrLoadModule('/src/pages/WeeklyBriefsPage.tsx')
 
 const schedules: SystemSchedulesResponse = {
   newsDiscovery: { enabled: true, cron: '0 25 7 * * *', zone: 'UTC', dailyTime: '07:25' },
@@ -85,7 +86,7 @@ test('API errors omit optional metadata and leave the three page shells renderab
   assert.equal(renderSchedule('newsDiscovery', response), '')
   assert.equal(renderSchedule('dailyBrief', response), '')
   for (const [Page, expectedText] of [
-    [ArticleFeed, '搜索'], [WatchlistsPage, '关注关键词'], [DailyBriefsPage, '每日情报简报'],
+    [ArticleFeed, '搜索'], [WatchlistsPage, '关注关键词'], [WeeklyBriefsPage, '每周情报总结'],
   ]) {
     const html = renderToStaticMarkup(createElement(MemoryRouter, null, createElement(Page)))
     assert.ok(html.includes(expectedText))
@@ -97,4 +98,9 @@ test('network failures also resolve as unavailable optional metadata', async (t)
   t.mock.method(globalThis, 'fetch', async () => { throw new TypeError('Network unavailable') })
 
   assert.equal(await getSystemSchedules(), null)
+})
+test('weekly schedule and default period use Shanghai Mondays', () => {
+  assert.equal(renderSchedule('weeklyBrief',{enabled:true,cron:'10 0 * * MON',zone:'Asia/Shanghai',dailyTime:'08:10',dayOfWeek:'MONDAY'}),'<p class="schedule-info">自动生成：每周一 08:10 · 北京时间</p>')
+  assert.equal(lastCompletedWeek(new Date('2026-09-20T16:00:00Z')),'2026-09-14')
+  assert.equal(lastCompletedWeek(new Date('2026-09-20T15:59:59Z')),'2026-09-07')
 })

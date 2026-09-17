@@ -51,6 +51,7 @@ export function ArticleListItem({ article }: ArticleListItemProps) {
             {article.original.title}
           </p>
         )}
+        {article.original.language === 'EN' && <p className="article-list-item__translation-status">{usesTranslation ? '机器翻译 · 可对照原文' : '中文译文待更新，系统会自动补译'}</p>}
 
         <a
           className="article-list-item__external-link"

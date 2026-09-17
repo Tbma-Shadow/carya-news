@@ -33,7 +33,7 @@ export function AppHeader() {
             新闻
           </NavLink>
           <NavLink to="/watchlists">关注关键词</NavLink>
-          <NavLink to="/daily-briefs">每日简报</NavLink>
+          <NavLink to="/weekly-briefs">每周总结</NavLink>
         </nav>
         <div className="app-header__account">
           <a className="tools-link" href="https://tools.caryaenergy.com">工具导览 ↗</a>

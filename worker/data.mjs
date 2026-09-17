@@ -93,6 +93,9 @@ export async function matchArticle(db, article) {
       ),
     );
 }
+export async function matchKeyword(db, id) {
+  await run(db, `INSERT OR IGNORE INTO article_keyword_matches(article_id,keyword_id) SELECT a.id,k.id FROM articles a JOIN keywords k ON k.id=? JOIN watchlists w ON w.id=k.watchlist_id WHERE k.enabled=1 AND w.enabled=1 AND (instr(lower(a.title),lower(k.keyword))>0 OR instr(lower(coalesce(a.description,'')),lower(k.keyword))>0)`, id);
+}
 export async function ingest(db, data) {
   const url = safeUrl(data.url);
   const t = now();
@@ -128,9 +131,9 @@ export async function articlePage(db, params) {
   }
   if (params.get("keyword")) {
     where.push(
-      "(instr(lower(a.title),lower(?))>0 OR instr(lower(coalesce(a.description,'')),lower(?))>0)",
+      "(instr(lower(a.title),lower(?))>0 OR instr(lower(coalesce(a.description,'')),lower(?))>0 OR instr(coalesce(json_extract(a.translation,'$.title'),''),?)>0 OR instr(coalesce(json_extract(a.translation,'$.description'),''),?)>0)",
     );
-    args.push(params.get("keyword"), params.get("keyword"));
+    args.push(...Array(4).fill(params.get("keyword")));
   }
   if (params.has("keywordId")) {
     where.push(
@@ -208,5 +211,6 @@ export async function patchNamed(db, table, id, data, key) {
       "DELETE FROM article_keyword_matches WHERE keyword_id=?",
       current.id,
     );
+  if (table === 'keywords') await matchKeyword(db, current.id);
   return required(db, table, current.id);
 }

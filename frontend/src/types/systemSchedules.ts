@@ -3,9 +3,11 @@ export interface ScheduleResponse {
   cron: string
   zone: string
   dailyTime: string | null
+  dayOfWeek?: 'MONDAY'
 }
 
 export interface SystemSchedulesResponse {
   newsDiscovery: ScheduleResponse
   dailyBrief: ScheduleResponse
+  weeklyBrief?: ScheduleResponse
 }

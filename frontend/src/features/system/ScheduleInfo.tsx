@@ -28,7 +28,7 @@ export function ScheduleText({ kind, schedule }: {
   const description = !schedule.enabled
     ? '未启用'
     : schedule.dailyTime !== null
-      ? `每天 ${schedule.dailyTime} · ${schedule.zone}`
+      ? `${schedule.dayOfWeek === 'MONDAY' ? '每周一' : '每天'} ${schedule.dailyTime} · ${schedule.zone === 'Asia/Shanghai' ? '北京时间' : schedule.zone}`
       : `按计划（${schedule.cron}）· ${schedule.zone}`
 
   return <p className="schedule-info">{label}：{description}</p>

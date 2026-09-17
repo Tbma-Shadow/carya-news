@@ -16,6 +16,7 @@ export function getArticleTranslationView(article: ArticleResponse) {
     needsTranslationRecovery:
       article.original.language === "EN" &&
       (!translatedTitle ||
+        Boolean(article.original.description && !article.translation?.description) ||
         Boolean(article.original.content && !article.translation?.content)),
     originalDescription: article.original.description,
     originalContent: article.original.content,
